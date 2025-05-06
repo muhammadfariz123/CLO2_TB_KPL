@@ -1,0 +1,9 @@
+{
+    "routes": ["A-B", "B-C", "C-D"],
+    "routesPrices": {
+      "A-B": 5000,
+      "B-C": 7000,
+      "C-D": 9000
+    },
+    "maxTickets": 5
+  }
