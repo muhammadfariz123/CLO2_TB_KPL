@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simulasi Mesin Tiket</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white shadow-lg rounded-xl p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center mb-4">🎫 Mesin Tiket Otomatis</h1>
+
+    <form id="ticketForm" class="space-y-4">
+      <!-- Pilih Rute -->
+      <div>
+        <label class="block font-semibold mb-1">🚉 Pilih Rute</label>
+        <select id="routeSelect" class="w-full p-2 border rounded">
+          <option value="">-- Pilih --</option>
+          <option value="A-B">A-B</option>
+          <option value="B-C">B-C</option>
+          <option value="C-D">C-D</option>
+        </select>
+      </div>
+
+      <!-- Jumlah Tiket -->
+      <div>
+        <label class="block font-semibold mb-1">🎟️ Jumlah Tiket (1–5)</label>
+        <input 
+          type="number"
+          id="ticketCount"
+          min="1"
+          max="5"
+          step="1"
+          placeholder="Masukkan jumlah tiket"
+          class="w-full p-2 border rounded"
+        />
+      </div>
+
+      <!-- Masukkan Uang -->
+      <div>
+        <label class="block font-semibold mb-1">💵 Uang Pembayaran (Rp)</label>
+        <input 
+          type="number"
+          id="moneyInput"
+          min="0"
+          step="1000"
+          placeholder="Contoh: 10000"
+          class="w-full p-2 border rounded"
+        />
+      </div>
+
+      <button type="submit" class="bg-blue-600 text-white w-full py-2 rounded hover:bg-blue-700">Bayar & Cetak Tiket</button>
+    </form>
+
+    <div id="output" class="mt-4 bg-gray-100 p-3 rounded text-sm font-mono whitespace-pre-line"></div>
+  </div>
+
+  <script type="module">
+    import { TicketAutomata } from './src/automata.js';
+    import { loadConfig } from './src/configManager.js';
+
+    const form = document.getElementById("ticketForm");
+    const routeSelect = document.getElementById("routeSelect");
+    const ticketCount = document.getElementById("ticketCount");
+    const moneyInput = document.getElementById("moneyInput");
+    const output = document.getElementById("output");
+
+    let machine = null;
+    let prices = {};
+
+    // Validasi input agar hanya angka 1–5
+    ticketCount.addEventListener("input", (e) => {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length > 1) value = value.slice(0, 1);
+      if (value < 1 || value > 5) value = '';
+      e.target.value = value;
+    });
+
+    const init = async () => {
+      try {
+        const config = await loadConfig();
+        machine = new TicketAutomata(config);
+        prices = config.routePrices || {
+          "A-B": 5000,
+          "B-C": 7000,
+          "C-D": 9000
+        };
+      } catch (err) {
+        output.innerText = "⚠️ Gagal memuat konfigurasi: " + err.message;
+        return;
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        output.innerText = "";
+
+        const route = routeSelect.value;
+        const count = Number(ticketCount.value);
+        const money = Number(moneyInput.value);
+
+        if (!route || !count || !money) {
+          output.innerText = "❗ Semua field harus diisi dengan benar.";
+          return;
+        }
+
+        if (count > 5) {
+          output.innerText = "❌ Maksimal jumlah tiket adalah 5.";
+          return;
+        }
+
+        const pricePerTicket = prices[route];
+        const totalPrice = pricePerTicket * count;
+
+        if (money < totalPrice) {
+          const kekurangan = totalPrice - money;
+          output.innerText = `❌ Uang tidak cukup.\n💸 Harga per tiket rute ${route}: Rp${pricePerTicket.toLocaleString()}\n🧾 Total: Rp${totalPrice.toLocaleString()}\n❗ Kurang: Rp${kekurangan.toLocaleString()}`;
+          return;
+        }
+
+        const kembalian = money - totalPrice;
+
+        try {
+          output.innerText += machine.transition(route) + "\n";
+          output.innerText += machine.transition(count) + "\n";
+          output.innerText += machine.transition(money) + "\n";
+          output.innerText += machine.transition("print") + "\n";
+          output.innerText += `✅ Tiket berhasil dicetak.\n💰 Kembalian: Rp${kembalian.toLocaleString()}`;
+        } catch (err) {
+          output.innerText = "⚠️ Error: " + err.message;
+        }
+      });
+    };
+
+    init();
+  </script>
+</body>
+</html>
